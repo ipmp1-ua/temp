@@ -1,0 +1,10 @@
+{
+  "data": {
+    "data_path": "antoniorv6/grandstaff",
+    "batch_size": 1,
+    "vocab_name": "GrandStaff",
+    "img_format": ".jpg",
+    "num_workers": 6,
+    "reduce_ratio": 0.25
+  }
+}
