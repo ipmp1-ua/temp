@@ -1,9 +1,13 @@
 from utils import levenshtein
 
 def parse_krn_content(krn, ler_parsing=False, cer_parsing=False):
+    krn = krn.replace("<eos>", "")
+    krn = krn.replace("<bos>", "")
     if cer_parsing:
         krn = krn.replace("\n", " <b> ")
         krn = krn.replace("\t", " <t> ")
+
+
         tokens = krn.split(" ")
         characters = []
         for token in tokens:

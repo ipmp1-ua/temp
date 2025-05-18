@@ -20,7 +20,7 @@ def main(config_path):
     datamodule = GrandStaffDataset(config=config.data)
 
     max_height, max_width = datamodule.train_set.get_max_hw()
-    max_len = datamodule.train_set.get_max_seqlen()
+    max_len = datamodule.train_set.get_max_seqlen()+2
 
     model_wrapper = SMT_Trainer(maxh=int(max_height), maxw=int(max_width), maxlen=int(max_len), 
                                 out_categories=len(datamodule.train_set.w2i), padding_token=datamodule.train_set.w2i["<pad>"], 

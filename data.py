@@ -36,8 +36,9 @@ def prepare_data(sample, reduce_ratio=1.0, fixed_size=None):
     gt = gt.replace("·", "")
     gt = gt.replace("\t", " <t> ")
     gt = gt.replace("\n", " <b> ")
+    sample["transcription"] = ["<bos>"]+ gt.split(" ")+["<eos>"]
 
-    sample["transcription"] = gt.split(" ")
+    #sample["transcription"] =  gt.split(" ") 
     sample["image"] = pil_image.fromarray(img)
 
     return sample
@@ -49,7 +50,7 @@ def load_set(dataset, split="train", reduce_ratio=1.0, fixed_size=None):
     
     # Load dataset
     ds = datasets.load_dataset(dataset, split=split)
-    #ds = ds.select(range(min(100, len(ds))))
+
 
 
     cache_file_name = os.path.join(cache_dir, f"cache-{split}-{reduce_ratio}-{fixed_size}")
@@ -65,6 +66,13 @@ def load_set(dataset, split="train", reduce_ratio=1.0, fixed_size=None):
         desc=f"Processing {split} split"
     )
 
+   # print(split)
+    #if split == "val":
+     # print("Val set size: ", len(ds))
+      #ds = ds.select(range(min(100, len(ds))))
+      #print("Val set size after selection: ", len(ds))
+
+      
     return ds
 
 def batch_preparation_img2seq(data):
@@ -165,8 +173,6 @@ class GrandStaffSingleSystem(OMRIMG2SEQDataset):
         self.num_sys_gen = 1
         self.fixed_systems_num = False
 
-    def erase_numbers_in_tokens_with_equal(self, tokens):
-        return [re.sub(r'(?<=\=)\d+', '', token) for token in tokens]
 
     def get_width_avgs(self):
         widths = [s["image"].size[0] for s in self.data]
@@ -202,18 +208,6 @@ class GrandStaffSingleSystem(OMRIMG2SEQDataset):
     def get_gt(self):
         return self.data["transcription"]
 
-    def preprocess_gt(self, Y):
-        for idx, krn in enumerate(Y):
-            krnlines = []
-            krn = "".join(krn)
-            krn = krn.replace(" ", " <s> ")
-            krn = krn.replace("·", "")
-            krn = krn.replace("\t", " <t> ")
-            krn = krn.replace("\n", " <b> ")
-            krn = krn.split(" ")
-
-            Y[idx] = self.erase_numbers_in_tokens_with_equal(['<bos>'] + krn + ['<eos>'])
-        return Y
 
 class GrandStaffDataset(LightningDataModule):
     def __init__(self, config:ExperimentConfig) -> None:
@@ -223,12 +217,11 @@ class GrandStaffDataset(LightningDataModule):
         self.vocab_name = config.vocab_name
         self.batch_size = config.batch_size
         self.num_workers = config.num_workers
-        if not config.only_test:
-          self.train_set = GrandStaffSingleSystem(data_path=self.data_path, split="train", augment=True)
-          self.val_set = GrandStaffSingleSystem(data_path=self.data_path, split="val",)
-          self.test_set = GrandStaffSingleSystem(data_path=self.data_path, split="test",)
+        self.train_set = GrandStaffSingleSystem(data_path=self.data_path, split="train", augment=True)
+        self.val_set = GrandStaffSingleSystem(data_path=self.data_path, split="val",)
+        self.test_set = GrandStaffSingleSystem(data_path=self.data_path, split="test",)
 
-        w2i, i2w = check_and_retrieveVocabulary([self.train_set.get_gt(), self.val_set.get_gt(), self.test_set.get_gt()] if self.train_set is not None else None, "vocab/", f"{self.vocab_name}")
+        w2i, i2w = check_and_retrieveVocabulary([self.train_set.get_gt(), self.val_set.get_gt(), self.test_set.get_gt()], "vocab/", f"{self.vocab_name}")
 
         self.train_set.set_dictionaries(w2i, i2w)
         self.val_set.set_dictionaries(w2i, i2w)
@@ -247,4 +240,6 @@ class GrandStaffDataset(LightningDataModule):
             prefetch_factor=2
         )
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(self.test_set, batch_size=self.batch_size, num_workers=self.num_workers, collate_fn=batch_preparation_img2seq)
+        return torch.utils.data.DataLoader(self.test_set, batch_size=self.batch_size, num_workers=self.num_workers, collate_fn=batch_preparation_img2seq,
+                                                       pin_memory=True,
+            prefetch_factor=2)
